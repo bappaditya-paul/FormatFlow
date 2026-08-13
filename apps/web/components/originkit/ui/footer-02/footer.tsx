@@ -11,29 +11,29 @@ function asset(file: string) {
 
 const LINK_COLUMNS = [
   {
-    title: "Links",
+    title: "Product",
     links: [
-      { label: "Home", href: "#home" },
-      { label: "About", href: "#about" },
-      { label: "Features", href: "#features" },
-      { label: "Pricing", href: "#pricing" },
+      { label: "Home", href: "/" },
+      { label: "Editor", href: "/editor" },
+      { label: "Result", href: "/result" },
+      { label: "Share", href: "/share" },
     ],
   },
   {
-    title: "Other",
+    title: "Features",
     links: [
-      { label: "Automation", href: "#automation" },
-      { label: "Product Overview", href: "#product" },
-      { label: "Documentation", href: "#docs" },
-      { label: "Integration", href: "#integration" },
+      { label: "Resize & Crop", href: "#" },
+      { label: "Fit & Cover", href: "#" },
+      { label: "Presets Selector", href: "#" },
+      { label: "Format Conversion", href: "#" },
     ],
   },
   {
     title: "Legal",
     links: [
-      { label: "Privacy policy", href: "#privacy" },
-      { label: "License", href: "#license" },
-      { label: "Terms & Conditions", href: "#terms" },
+      { label: "Privacy policy", href: "#" },
+      { label: "License", href: "#" },
+      { label: "Terms & Conditions", href: "#" },
     ],
   },
 ] as const;
@@ -62,7 +62,7 @@ const SOCIAL_SHADOW =
 export function Footer() {
   return (
     <footer
-      aria-label="Notrix footer"
+      aria-label="FormatFlow footer"
       className="relative isolate mx-auto w-full min-h-[778px] overflow-hidden rounded-[12px] bg-[#212121]"
     >
       {/*
@@ -72,13 +72,13 @@ export function Footer() {
       */}
       <div className="relative z-10 flex flex-col gap-8 px-4 pt-10 pb-[300px] ipad:gap-12 ipad:px-12 ipad:pt-12 ipad:pb-[320px] desktop-sm:flex-row desktop-sm:items-stretch desktop-sm:justify-between desktop-sm:gap-0 desktop-sm:px-14 desktop-sm:pt-[72px] desktop-sm:pb-[300px]">
         {/* Brand */}
-        <div className="flex w-full flex-col gap-6 ipad:gap-8 desktop-sm:w-[169px] desktop-sm:shrink-0 desktop-sm:justify-between desktop-sm:gap-0">
+        <div className="flex w-full flex-col gap-6 ipad:gap-8 desktop-sm:w-[220px] desktop-sm:shrink-0 desktop-sm:justify-between desktop-sm:gap-0">
           <div className="flex flex-col gap-2 ipad:gap-4">
             <p className="font-hedvig text-[24px] leading-[1.1] tracking-[-0.96px] text-white/90">
-              Notrix
+              FormatFlow
             </p>
             <p className="font-sans text-[14px] leading-[1.4] text-[#c2c2c2]">
-              AI agents for modern email workflow
+              Universal image transformation platform
             </p>
           </div>
 

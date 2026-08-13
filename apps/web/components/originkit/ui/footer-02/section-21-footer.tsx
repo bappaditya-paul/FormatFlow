@@ -13,7 +13,7 @@ function asset(file: string) {
 export function Section21Footer() {
   return (
     <section
-      aria-label="Notrix site footer"
+      aria-label="FormatFlow site footer"
       className="relative isolate flex min-h-svh w-full flex-col items-center justify-end overflow-hidden bg-[#f6f3ea] px-4 pb-8 pt-12 ipad:px-10 ipad:pt-16 desktop-sm:px-12 desktop-sm:pt-24"
     >
       {/* Soft multi-color wash behind the footer card */}
