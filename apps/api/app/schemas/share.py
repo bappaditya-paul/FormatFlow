@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 
 class ShareCreateRequest(BaseModel):
-    transformation_id: uuid.UUID
+    transformation_id: uuid.UUID | None = None
 
 
 class ShareLinkResponse(BaseModel):

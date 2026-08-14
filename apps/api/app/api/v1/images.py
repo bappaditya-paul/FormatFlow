@@ -116,24 +116,41 @@ async def download_image(
 @router.post("/{image_id}/share", response_model=ShareLinkResponse)
 async def create_share_link(
     image_id: uuid.UUID,
-    payload: ShareCreateRequest,
+    payload: ShareCreateRequest | None = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Generate a public shareable URL token for a specific transformation.
     """
-    # Verify transformation exists
-    transformation = await transform_service.get_transformation(db, payload.transformation_id)
+    # 1. Resolve target transformation ID (either from payload or path parameter)
+    target_id = image_id
+    if payload and payload.transformation_id:
+        target_id = payload.transformation_id
+        
+    # 2. Check if this ID points to a valid transformation
+    transformation = await transform_service.get_transformation(db, target_id)
+    
+    # 3. Fallback: If not found, check if it points to an original image and get its latest transformation
+    if not transformation:
+        from sqlalchemy.future import select
+        from app.models.transformation import Transformation
+        result = await db.execute(
+            select(Transformation)
+            .where(Transformation.source_image_id == target_id)
+            .order_by(Transformation.created_at.desc())
+        )
+        transformation = result.scalars().first()
+        
     if not transformation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transformation target not found"
+            detail="Transformation target not found. Please transform the image first, or provide a valid transformation ID."
         )
         
     try:
         db_share = await share_service.create_share_link(
             db=db,
-            transformation_id=payload.transformation_id,
+            transformation_id=transformation.id,
             expires_in_hours=24  # Default 24h expiration
         )
         
