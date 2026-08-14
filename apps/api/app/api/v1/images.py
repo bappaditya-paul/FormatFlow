@@ -22,24 +22,43 @@ async def get_image_metadata(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Fetch upload image details and metadata by ID.
+    Fetch upload image details or transformation details by ID.
     """
+    # 1. Search in original uploads
     image = await image_service.get_image(db, image_id)
-    if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image not found"
+    if image:
+        return ImageMetadata(
+            id=image.id,
+            original_filename=image.original_filename,
+            mime_type=image.mime_type,
+            width=image.width,
+            height=image.height,
+            file_size_bytes=image.file_size_bytes,
+            public_url=image.public_url,
+            created_at=image.created_at
         )
+
+    # 2. Fallback search in transformations
+    transformation = await transform_service.get_transformation(db, image_id)
+    if transformation:
+        # Resolve original image for filename context
+        orig_image = await image_service.get_image(db, transformation.source_image_id)
+        filename = f"transformed-{orig_image.original_filename if orig_image else 'image'}.{transformation.output_format}"
         
-    return ImageMetadata(
-        id=image.id,
-        original_filename=image.original_filename,
-        mime_type=image.mime_type,
-        width=image.width,
-        height=image.height,
-        file_size_bytes=image.file_size_bytes,
-        public_url=image.public_url,
-        created_at=image.created_at
+        return ImageMetadata(
+            id=transformation.id,
+            original_filename=filename,
+            mime_type=f"image/{transformation.output_format}",
+            width=transformation.target_width,
+            height=transformation.target_height,
+            file_size_bytes=0, # not stored directly, can be defaulted
+            public_url=transformation.public_url,
+            created_at=transformation.created_at
+        )
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Image or transformation resource not found"
     )
 
 @router.get("/{image_id}/download")
@@ -48,32 +67,51 @@ async def download_image(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Download the raw image file directly.
+    Download the raw image or transformed file directly.
     """
+    # 1. Try downloading from original uploads
     image = await image_service.get_image(db, image_id)
-    if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Image not found"
-        )
-        
-    try:
-        # Get raw bytes from storage
-        file_bytes = await storage_service.get_file(image.storage_key)
-        
-        # Return binary response with download attachment headers
-        return Response(
-            content=file_bytes,
-            media_type=image.mime_type,
-            headers={
-                "Content-Disposition": f'attachment; filename="{image.original_filename}"'
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to download image file: {str(e)}"
-        )
+    if image:
+        try:
+            file_bytes = await storage_service.get_file(image.storage_key)
+            return Response(
+                content=file_bytes,
+                media_type=image.mime_type,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{image.original_filename}"'
+                }
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to download original image file: {str(e)}"
+            )
+
+    # 2. Try downloading from transformations
+    transformation = await transform_service.get_transformation(db, image_id)
+    if transformation:
+        try:
+            file_bytes = await storage_service.get_file(transformation.storage_key)
+            orig_image = await image_service.get_image(db, transformation.source_image_id)
+            filename = f"transformed-{orig_image.original_filename if orig_image else 'image'}.{transformation.output_format}"
+            
+            return Response(
+                content=file_bytes,
+                media_type=f"image/{transformation.output_format}",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"'
+                }
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to download transformed image file: {str(e)}"
+            )
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Resource not found"
+    )
 
 @router.post("/{image_id}/share", response_model=ShareLinkResponse)
 async def create_share_link(
