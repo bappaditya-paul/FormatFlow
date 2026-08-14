@@ -30,3 +30,11 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Databases
+*.db
+*.sqlite3
+
+# Static Uploads Fallback
+apps/api/static/
+
