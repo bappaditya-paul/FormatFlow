@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5435:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U formatflow"]
       interval: 10s
@@ -34,7 +34,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://formatflow:formatflow@db:5432/formatflow
     ports:
-      - "8000:8000"
+      - "8001:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -48,11 +48,13 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8001
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://api:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
     ports:
-      - "3000:3000"
+      - "3005:3000"
     depends_on:
       - api
 

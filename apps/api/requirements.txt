@@ -13,6 +13,7 @@ alembic==1.13.3
 
 # Image Processing (install libvips system library first — see docs/setup.md)
 pyvips==2.2.3
+Pillow>=10.4.0
 
 # Object Storage (Cloudflare R2 is S3-compatible)
 boto3==1.35.30
