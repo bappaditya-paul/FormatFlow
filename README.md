@@ -1,113 +1,172 @@
 # FormatFlow
 
-> **Universal image transformation platform** — Upload any image, pick a target format, download the result.
+> **Universal Image Transformation Platform & Delivery Infrastructure** — An optimized, modular monolith for instant image formatting, cropping, and lightning-fast CDN delivery.
 
 ---
 
-## What is FormatFlow?
+## 📐 System Architecture
 
-FormatFlow lets users upload an image and transform it into any predefined or custom dimension with format conversion and compression — powered by **libvips/pyvips** (no AI/ML).
+Below is the conceptual architecture of **FormatFlow**, showing how client layers interact with the core engine and persistence layers:
 
----
+```mermaid
+graph TD
+    %% Clients
+    subgraph Clients [Client Layer]
+        A[Web App]
+        B[Mobile App]
+        C[Developer API]
+    end
 
-## Tech Stack
+    %% API Gateway
+    subgraph Gateway [API Gateway]
+        D[API Gateway]
+        D1[1. Authentication]
+        D2[2. Rate Limiting]
+        D3[3. Security & File Validation]
+    end
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 15, TypeScript, Tailwind CSS |
-| Backend | FastAPI, Python 3.12, Pydantic v2 |
-| Image Processing | libvips / pyvips |
-| Database | PostgreSQL 16 + SQLAlchemy (async) |
-| Object Storage | Cloudflare R2 |
-| CDN | Cloudflare |
-| Container | Docker + Docker Compose |
+    %% Core Services
+    subgraph Core [FormatFlow Core Services]
+        E[FormatFlow Coordinator]
+        F[Upload Service]
+        G[Transform Service]
+        H[Share Service]
+        
+        subgraph Engine [Transformation Engine]
+            G1[libvips / pyvips]
+        end
+    end
 
----
+    %% Storage & DB
+    subgraph Persistence [Data & Storage Layer]
+        I[(PostgreSQL - Metadata)]
+        J[Cloudflare R2 / S3 Object Storage]
+        K[Cloudflare CDN]
+    end
 
-## Monorepo Structure
-
+    %% Flows
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    
+    E --> F
+    E --> G
+    E --> H
+    
+    G --> G1
+    
+    F --> I
+    F --> J
+    G --> J
+    H --> I
+    
+    J --> K
+    K --> L[User Optimized Download]
+    
+    %% Styles
+    style D fill:#1e1e24,stroke:#333,stroke-width:2px,color:#fff
+    style E fill:#0d9488,stroke:#0f766e,stroke-width:2px,color:#fff
+    style G1 fill:#4f46e5,stroke:#4338ca,stroke-width:2px,color:#fff
+    style I fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    style J fill:#ea580c,stroke:#c2410c,stroke-width:2px,color:#fff
 ```
+
+---
+
+## 📁 Monorepo Directory Layout
+
+The codebase is organized as a clean **modular monorepo** separating the API routing, business services, pure image transformation logic, and client interfaces:
+
+```text
 formatflow/
 ├── apps/
-│   ├── web/        ← Next.js frontend
-│   └── api/        ← FastAPI backend
-├── packages/
-│   ├── shared-types/
-│   └── config/
-├── infrastructure/
-├── docs/
-├── docker-compose.yml
-├── .env.example
-└── package.json
+│   ├── web/                         # Next.js 15 Client Web Application
+│   │   ├── app/
+│   │   │   ├── page.tsx             # Interactive Editor (Upload, Presets, Live Preview)
+│   │   │   ├── editor/              # Route stub for transformations
+│   │   │   ├── result/              # Route stub for output preview
+│   │   │   ├── share/               # Route stub for public sharing URLs
+│   │   │   └── dashboard/           # Route stub for historical items
+│   │   ├── components/              # Reusable React components
+│   │   │   ├── uploader/            # Drag & drop or URL upload controls
+│   │   │   ├── editor/              # Fitting, size, format & quality switches
+│   │   │   ├── presets/             # Ratio configuration buttons
+│   │   │   ├── preview/             # Canvas preview frames
+│   │   │   └── originkit/           # Premium theme elements (Footer-02)
+│   │   ├── lib/
+│   │   │   ├── api.ts               # Fully-typed fetch client for backend endpoints
+│   │   │   └── utils.ts             # Tailwind class merging utility
+│   │   └── package.json
+│   │
+│   └── api/                         # FastAPI Backend Application
+│       ├── app/
+│       │   ├── main.py              # Application entrypoint & health routes
+│       │   ├── api/v1/              # Routing Layer (HTTP upload, transform, share, presets)
+│       │   ├── core/                # Configuration, JWT Security, Logging definitions
+│       │   ├── models/              # SQLAlchemy Database ORM Models (Image, Transform, Share)
+│       │   ├── schemas/             # Pydantic request/response validation schemas
+│       │   ├── services/            # Business Orchestrators (Storage, Image handling)
+│       │   ├── engine/              # Isolated Image Processing (Pure libvips pipeline)
+│       │   ├── db/                  # Async db engine setup & migrations (Alembic)
+│       │   └── utils/               # Shared helpers
+│       ├── tests/                   # Pytest automation suite
+│       └── requirements.txt         # Pinned backend dependencies
+│
+├── packages/                        # Shareable backend configuration & TS typings
+├── docs/                            # In-depth architectural & API documentations
+├── docker-compose.yml               # Complete Postgres, backend, frontend dev-stack
+├── .env.example                     # Environment configuration keys
+└── package.json                     # Monorepo workspaces coordinator
 ```
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 ### Prerequisites
-- Node.js 22+
-- Python 3.12+
-- Docker & Docker Compose
-- libvips (`apt install libvips-dev` / `brew install vips`)
+- **Node.js**: `v22` or higher
+- **Python**: `v3.12` or higher
+- **libvips system library**: Required for the `pyvips` binding.
+  - **macOS**: `brew install vips`
+  - **Linux (Ubuntu/Debian)**: `sudo apt-get install libvips-dev`
 
-### 1. Clone & configure env
+---
 
+### Local Run Configuration
+
+#### 1. Setup Environments
+Copy `.env.example` in both directories to configure local variables:
 ```bash
 cp .env.example .env
-# Fill in R2 credentials and SECRET_KEY
 ```
 
-### 2. Run with Docker Compose
-
-```bash
-docker compose up
-```
-
-- Frontend → http://localhost:3000
-- API → http://localhost:8000
-- API Docs → http://localhost:8000/docs
-
-### 3. Run locally (dev)
-
-**Backend:**
+#### 2. Run Backend (FastAPI)
 ```bash
 cd apps/api
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
+* **API Address:** [http://localhost:8001](http://localhost:8001)
+* **API Documentation:** [http://localhost:8001/docs](http://localhost:8001/docs)
 
-**Frontend:**
+#### 3. Run Frontend (Next.js)
 ```bash
 cd apps/web
 npm install
-npm run dev
+npm run dev -- --port 3000
 ```
+* **Frontend Address:** [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## Development Roadmap
+## ⚙️ Key Architectural Principles
 
-| Module | Status | Description |
-|---|---|---|
-| 1 — Foundation | ✅ Done | Monorepo, FastAPI, Next.js, Docker |
-| 2 — Upload | 🔲 Next | Image upload endpoint |
-| 3 — Metadata | 🔲 | Image analysis |
-| 4 — Engine | 🔲 | pyvips transformation pipeline |
-| 5 — Presets | 🔲 | Format presets |
-| 6 — R2 Storage | 🔲 | Cloudflare R2 integration |
-| 7 — PostgreSQL | 🔲 | Metadata persistence |
-| 8 — Frontend UI | 🔲 | Editor interface |
-| 9 — Download/Share | 🔲 | Share links |
-| 10 — Security | 🔲 | Rate limiting, validation |
-| 11 — Auth | 🔲 | User accounts |
-| 12 — Production | 🔲 | Deployment |
-
----
-
-## Architecture Principle
-
-> The **Transformation Engine is fully isolated from HTTP, auth, and the database**.
-> It operates on `bytes + config → bytes`. This makes it reusable as a mobile SDK, CLI, or public API without rewriting image-processing logic.
+1. **Decoupled Transformation Engine**
+   The `apps/api/app/engine` is completely isolated from HTTP requests, user sessions, and database states. It performs pure image processing (`bytes + config -> bytes`), meaning it can be packaged as a CLI tool or SDK without modifications.
+2. **Preset-driven Scaling**
+   Supported platforms (Instagram stories, YouTube thumbnails) are modeled as preset definitions. Adding a preset does not change the core pipeline.
+3. **Storage/DB Separation**
+   PostgreSQL stores image metadata (width, height, format, storage path), while processed and raw image assets are held in Cloudflare R2 object storage, delivered via a global CDN.
