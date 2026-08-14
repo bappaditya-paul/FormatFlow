@@ -19,13 +19,20 @@ class ImageService:
         db: AsyncSession, 
         file_bytes: bytes, 
         filename: str, 
-        mime_type: str
+        mime_type: str,
+        width: int | None = None,
+        height: int | None = None,
+        format: str | None = None,
+        orientation: int | None = None,
+        color_profile: str | None = None,
+        exif: dict | None = None
     ) -> Image:
         """
         Parses image metadata, saves raw file to storage, and registers the image in database.
         """
-        # Parse dimensions
-        width, height = self._get_image_dimensions(file_bytes, mime_type)
+        # Parse dimensions if not provided
+        if width is None or height is None:
+            width, height = self._get_image_dimensions(file_bytes, mime_type)
         
         # Upload file to storage (R2 or Local)
         public_url = await storage_service.upload_file(file_bytes, filename, mime_type)
@@ -43,6 +50,10 @@ class ImageService:
             height=height,
             file_size_bytes=len(file_bytes),
             public_url=public_url,
+            format=format or mime_type.split("/")[-1],
+            orientation=orientation or 1,
+            color_profile=color_profile,
+            exif=exif or {},
             created_at=datetime.utcnow()
         )
         

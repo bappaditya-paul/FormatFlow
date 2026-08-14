@@ -48,10 +48,11 @@ MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
 MAX_DIMENSION_PX = 10000  # 10,000 pixels max width/height
 
 class UploadService:
-    def validate_and_cache(self, file_bytes: bytes, client_filename: str) -> tuple[Path, str, int, int, int]:
+    def validate_and_cache(self, file_bytes: bytes, client_filename: str) -> tuple[Path, str, int, int, int, str | None, int | None, str | None, dict]:
         """
         Validates magic bytes, file size, image dimensions, and saves the file to temporary storage.
-        Returns: (temp_file_path, detected_mime_type, file_size, width, height)
+        Extracts rich metadata: format, orientation, color_profile, exif.
+        Returns: (temp_file_path, detected_mime_type, file_size, width, height, format, orientation, color_profile, exif)
         """
         file_size = len(file_bytes)
         
@@ -91,18 +92,97 @@ class UploadService:
         if width > MAX_DIMENSION_PX or height > MAX_DIMENSION_PX:
             raise ValueError(f"Image dimensions exceed limit of {MAX_DIMENSION_PX}x{MAX_DIMENSION_PX}px")
 
-        # 4. Generate extension based on validated type
+        # 4. Extract rich metadata
+        rich_meta = self._extract_rich_metadata(file_bytes, detected_mime)
+
+        # 5. Generate extension based on validated type
         ext = ALLOWED_FORMATS[detected_mime]["extensions"][0]
         temp_filename = f"{uuid.uuid4()}{ext}"
         temp_path = TEMP_DIR / temp_filename
         
-        # 5. Save to temporary storage
+        # 6. Save to temporary storage
         with open(temp_path, "wb") as f:
             f.write(file_bytes)
             
         logger.info(f"Uploaded file validated and cached temporarily at {temp_path} (MIME: {detected_mime}, size: {file_size} bytes)")
         
-        return temp_path, detected_mime, file_size, width, height
+        return (
+            temp_path, 
+            detected_mime, 
+            file_size, 
+            width, 
+            height,
+            rich_meta["format"],
+            rich_meta["orientation"],
+            rich_meta["color_profile"],
+            rich_meta["exif"]
+        )
+
+    def _serialize_exif_value(self, val):
+        """Recursively convert EXIF values into standard JSON-serializable types."""
+        if isinstance(val, bytes):
+            try:
+                return val.decode("utf-8", errors="ignore").strip("\x00 ")
+            except Exception:
+                return val.hex()
+        elif isinstance(val, (int, float, str, bool)) or val is None:
+            return val
+        elif isinstance(val, (list, tuple)):
+            return [self._serialize_exif_value(v) for v in val]
+        elif isinstance(val, dict):
+            return {str(k): self._serialize_exif_value(v) for k, v in val.items()}
+        else:
+            try:
+                # Convert IFDRational or others to float
+                return float(val)
+            except Exception:
+                return str(val)
+
+    def _extract_rich_metadata(self, file_bytes: bytes, mime_type: str) -> dict:
+        """
+        Extracts format, orientation, color profile, and EXIF tags from image bytes.
+        """
+        metadata = {
+            "format": mime_type.split("/")[-1],
+            "orientation": 1,
+            "color_profile": None,
+            "exif": {}
+        }
+        
+        try:
+            with PILImage.open(io.BytesIO(file_bytes)) as img:
+                if img.format:
+                    metadata["format"] = img.format.lower()
+                
+                # Extract Color Profile
+                icc = img.info.get("icc_profile")
+                if icc:
+                    try:
+                        from PIL import ImageCms
+                        profile = ImageCms.getProfileName(io.BytesIO(icc))
+                        metadata["color_profile"] = profile.strip("\x00 ")
+                    except Exception:
+                        metadata["color_profile"] = "Custom Profile"
+                
+                # Extract EXIF info
+                exif_data = img.getexif()
+                if exif_data:
+                    from PIL.ExifTags import TAGS
+                    raw_exif = {}
+                    for tag_id, value in exif_data.items():
+                        tag_name = TAGS.get(tag_id, tag_id)
+                        raw_exif[str(tag_name)] = self._serialize_exif_value(value)
+                    
+                    metadata["exif"] = raw_exif
+                    
+                    # Orientation EXIF tag ID is 274
+                    orientation = exif_data.get(274)
+                    if orientation:
+                        metadata["orientation"] = int(orientation)
+        except Exception as e:
+            logger.warning(f"Failed to extract rich metadata: {e}")
+            
+        return metadata
 
     def _detect_mime_type(self, data: bytes) -> str | None:
         """

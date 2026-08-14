@@ -24,7 +24,7 @@ async def upload_image(
         
         # Perform validation and save to temporary storage
         from app.services.upload_service import upload_service
-        temp_path, mime_type, file_size, width, height = upload_service.validate_and_cache(
+        temp_path, mime_type, file_size, width, height, format_name, orientation, color_profile, exif = upload_service.validate_and_cache(
             file_bytes, file.filename or "upload"
         )
         
@@ -38,7 +38,13 @@ async def upload_image(
                 db=db,
                 file_bytes=cached_bytes,
                 filename=file.filename or f"upload.{mime_type.split('/')[-1]}",
-                mime_type=mime_type
+                mime_type=mime_type,
+                width=width,
+                height=height,
+                format=format_name,
+                orientation=orientation,
+                color_profile=color_profile,
+                exif=exif
             )
         finally:
             # Clean up temporary cached file
@@ -54,6 +60,10 @@ async def upload_image(
             height=db_image.height,
             file_size_bytes=db_image.file_size_bytes,
             public_url=db_image.public_url,
+            format=db_image.format,
+            orientation=db_image.orientation,
+            color_profile=db_image.color_profile,
+            exif=db_image.exif,
             created_at=db_image.created_at
         )
         

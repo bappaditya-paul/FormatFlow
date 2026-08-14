@@ -35,6 +35,10 @@ async def get_image_metadata(
             height=image.height,
             file_size_bytes=image.file_size_bytes,
             public_url=image.public_url,
+            format=image.format,
+            orientation=image.orientation,
+            color_profile=image.color_profile,
+            exif=image.exif,
             created_at=image.created_at
         )
 

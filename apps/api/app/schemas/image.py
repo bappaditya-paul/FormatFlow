@@ -16,6 +16,10 @@ class ImageMetadata(BaseModel):
     height: int
     file_size_bytes: int
     public_url: str | None = None
+    format: str | None = None
+    orientation: int | None = None
+    color_profile: str | None = None
+    exif: dict | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

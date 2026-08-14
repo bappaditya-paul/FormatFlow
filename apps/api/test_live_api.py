@@ -36,7 +36,7 @@ def run_tests():
         upload_data = r.json()
         image_id = upload_data["image"]["id"]
         print(f" -> SUCCESS: Uploaded image. Generated ID: {image_id}")
-        print(f" -> Dimension: {upload_data['image']['width']}x{upload_data['image']['height']}\n")
+        print(f" -> Response JSON:\n{upload_data}\n")
 
         # 3. GET /v1/images/{image_id}
         print(f"[3/7] GET /v1/images/{image_id}")
@@ -44,7 +44,7 @@ def run_tests():
         assert r.status_code == 200, f"Failed metadata lookup: {r.text}"
         meta = r.json()
         print(f" -> SUCCESS: Retrieved image metadata.")
-        print(f" -> Filename: {meta['original_filename']}\n")
+        print(f" -> Response JSON:\n{meta}\n")
 
         # 4. GET /v1/images/{image_id}/download
         print(f"[4/7] GET /v1/images/{image_id}/download")
