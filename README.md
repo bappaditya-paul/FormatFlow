@@ -8,6 +8,8 @@
 
 Below is the conceptual architecture of **FormatFlow**, showing how client layers interact with the core engine and persistence layers:
 
+![FormatFlow System Architecture](./docs/Screenshot%20From%202026-08-14%2013-33-18.png)
+
 ```mermaid
 graph TD
     %% Clients
