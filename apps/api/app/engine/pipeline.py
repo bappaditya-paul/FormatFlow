@@ -66,93 +66,62 @@ class TransformationPipeline:
         """
         PIL/Pillow transformation implementation.
         """
+        from app.engine.metadata import auto_orient_pillow
+        from app.engine.resize import resize_pillow
+        from app.engine.crop import crop_pillow, pad_pillow
+        from app.engine.format import prepare_pillow_format
+        from app.engine.compression import compress_pillow
+
+        # 1. Open and auto-orient
         img = PILImage.open(io.BytesIO(image_bytes))
+        img = auto_orient_pillow(img)
         
-        # Keep original transparency if PNG/WebP, otherwise convert to RGB
-        if img.mode in ("RGBA", "LA", "P") and config.output_format in (OutputFormat.PNG, OutputFormat.WEBP, OutputFormat.AVIF):
-            pass
-        else:
-            img = img.convert("RGB")
-            
+        # 2. Resize / crop based on FitMode
         orig_w, orig_h = img.size
         tar_w, tar_h = config.target_width, config.target_height
 
-        # Fit Mode processing
         if config.fit_mode == FitMode.FIT:
-            # Stretch to fit
-            img = img.resize((tar_w, tar_h), PILImage.Resampling.LANCZOS)
-        
+            img = resize_pillow(img, tar_w, tar_h)
+            
         elif config.fit_mode == FitMode.COVER:
-            # Scale to cover target, crop center
             ratio_w = tar_w / orig_w
             ratio_h = tar_h / orig_h
             scale = max(ratio_w, ratio_h)
-            
             new_w = int(orig_w * scale)
             new_h = int(orig_h * scale)
-            img = img.resize((new_w, new_h), PILImage.Resampling.LANCZOS)
+            img = resize_pillow(img, new_w, new_h)
             
-            # Crop
             left = (new_w - tar_w) // 2
             top = (new_h - tar_h) // 2
-            img = img.crop((left, top, left + tar_w, top + tar_h))
+            img = crop_pillow(img, left, top, tar_w, tar_h)
             
         elif config.fit_mode == FitMode.CONTAIN:
-            # Fit inside boundaries with padded background
             ratio_w = tar_w / orig_w
             ratio_h = tar_h / orig_h
             scale = min(ratio_w, ratio_h)
-            
             new_w = int(orig_w * scale)
             new_h = int(orig_h * scale)
-            img = img.resize((new_w, new_h), PILImage.Resampling.LANCZOS)
-            
-            # Create background canvas
-            background_color = (0, 0, 0, 0) if img.mode == "RGBA" else (240, 240, 240)
-            canvas = PILImage.new(img.mode, (tar_w, tar_h), background_color)
-            
-            # Paste scaled image in center
-            left = (tar_w - new_w) // 2
-            top = (tar_h - new_h) // 2
-            canvas.paste(img, (left, top))
-            img = canvas
+            img = resize_pillow(img, new_w, new_h)
+            img = pad_pillow(img, tar_w, tar_h)
             
         elif config.fit_mode == FitMode.CROP:
-            # Simple center crop to match aspect ratio, then scale
             tar_ratio = tar_w / tar_h
             orig_ratio = orig_w / orig_h
-            
             if orig_ratio > tar_ratio:
-                # Source is wider, crop left/right
                 crop_w = int(orig_h * tar_ratio)
                 left = (orig_w - crop_w) // 2
-                img = img.crop((left, 0, left + crop_w, orig_h))
+                img = crop_pillow(img, left, 0, crop_w, orig_h)
             else:
-                # Source is taller, crop top/bottom
                 crop_h = int(orig_w / tar_ratio)
                 top = (orig_h - crop_h) // 2
-                img = img.crop((0, top, orig_w, top + crop_h))
-                
-            img = img.resize((tar_w, tar_h), PILImage.Resampling.LANCZOS)
+                img = crop_pillow(img, 0, top, orig_w, crop_h)
+            img = resize_pillow(img, tar_w, tar_h)
 
-        # Output conversion & save
-        out_buf = io.BytesIO()
-        fmt_str = config.output_format.value.upper()
-        
-        # Match output format
-        if fmt_str == "JPEG":
-            fmt_str = "JPEG"
-        elif fmt_str == "WEBP":
-            fmt_str = "WEBP"
-        elif fmt_str == "AVIF":
-            fmt_str = "AVIF"
-            
-        save_kwargs = {}
-        if fmt_str in ("JPEG", "WEBP", "AVIF"):
-            save_kwargs["quality"] = config.quality
-            
-        img.save(out_buf, format=fmt_str, **save_kwargs)
-        processed_data = out_buf.getvalue()
+        # 3. Format conversion
+        img = prepare_pillow_format(img, config.output_format.value)
+
+        # 4. Compression & export
+        processed_data = compress_pillow(img, config.output_format.value, config.quality)
         
         return TransformResult(
             data=processed_data,
@@ -166,63 +135,54 @@ class TransformationPipeline:
         """
         High-performance pyvips transformation implementation.
         """
-        # Load image from bytes buffer
+        from app.engine.metadata import auto_orient_pyvips
+        from app.engine.resize import resize_pyvips
+        from app.engine.crop import crop_pyvips, pad_pyvips
+        from app.engine.format import prepare_pyvips_format
+        from app.engine.compression import compress_pyvips
+
+        # 1. Load image and auto-orient
         loader = pyvips.Image.new_from_buffer(image_bytes, "")
-        
-        # Keep clean color profiles & auto-orient based on EXIF tag
-        img = loader.autorot
+        img = auto_orient_pyvips(loader)
         
         orig_w = img.width
         orig_h = img.height
         tar_w, tar_h = config.target_width, config.target_height
 
-        # Fit Mode processing
+        # 2. Resize / crop based on FitMode
         if config.fit_mode == FitMode.FIT:
-            img = img.resize(tar_w / orig_w, vscale=tar_h / orig_h)
+            img = resize_pyvips(img, tar_w / orig_w, tar_h / orig_h)
             
         elif config.fit_mode == FitMode.COVER:
             scale = max(tar_w / orig_w, tar_h / orig_h)
-            img = img.resize(scale)
-            # Crop center
+            img = resize_pyvips(img, scale)
             left = (img.width - tar_w) // 2
             top = (img.height - tar_h) // 2
-            img = img.crop(left, top, tar_w, tar_h)
+            img = crop_pyvips(img, left, top, tar_w, tar_h)
             
         elif config.fit_mode == FitMode.CONTAIN:
             scale = min(tar_w / orig_w, tar_h / orig_h)
-            img = img.resize(scale)
-            
-            # Pad canvas to match targets
-            left = (tar_w - img.width) // 2
-            top = (tar_h - img.height) // 2
-            img = img.embed(
-                left, top, tar_w, tar_h,
-                extend="background",
-                background=[240, 240, 240]
-            )
+            img = resize_pyvips(img, scale)
+            img = pad_pyvips(img, tar_w, tar_h)
             
         elif config.fit_mode == FitMode.CROP:
             tar_ratio = tar_w / tar_h
             orig_ratio = orig_w / orig_h
-            
             if orig_ratio > tar_ratio:
                 crop_w = int(orig_h * tar_ratio)
                 left = (orig_w - crop_w) // 2
-                img = img.crop(left, 0, crop_w, orig_h)
+                img = crop_pyvips(img, left, 0, crop_w, orig_h)
             else:
                 crop_h = int(orig_w / tar_ratio)
                 top = (orig_h - crop_h) // 2
-                img = img.crop(0, top, orig_w, crop_h)
-                
-            img = img.resize(tar_w / img.width, vscale=tar_h / img.height)
+                img = crop_pyvips(img, 0, top, orig_w, crop_h)
+            img = resize_pyvips(img, tar_w / img.width, tar_h / img.height)
 
-        # Output conversion & save
-        ext = f".{config.output_format.value}"
-        save_options = {}
-        if config.output_format in (OutputFormat.JPEG, OutputFormat.WEBP, OutputFormat.AVIF):
-            save_options["Q"] = config.quality
-            
-        processed_data = img.write_to_buffer(ext, **save_options)
+        # 3. Format conversion
+        img = prepare_pyvips_format(img, config.output_format.value)
+
+        # 4. Compression & export
+        processed_data = compress_pyvips(img, config.output_format.value, config.quality)
         
         return TransformResult(
             data=processed_data,
