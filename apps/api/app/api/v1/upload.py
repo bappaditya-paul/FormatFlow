@@ -19,30 +19,32 @@ async def upload_image(
     """
     Upload a raw image file. Parses dimensions, saves bytes, and registers it.
     """
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File type not supported. Please upload an image."
-        )
-        
     try:
         file_bytes = await file.read()
         
-        # Max limit check (e.g. 50MB)
-        max_bytes = 50 * 1024 * 1024
-        if len(file_bytes) > max_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Image file size exceeds the 50MB limit."
-            )
-            
-        db_image = await image_service.create_image(
-            db=db,
-            file_bytes=file_bytes,
-            filename=file.filename or "upload.jpg",
-            mime_type=file.content_type
+        # Perform validation and save to temporary storage
+        from app.services.upload_service import upload_service
+        temp_path, mime_type, file_size, width, height = upload_service.validate_and_cache(
+            file_bytes, file.filename or "upload"
         )
         
+        try:
+            # Read from temporary storage to verify caching
+            with open(temp_path, "rb") as f:
+                cached_bytes = f.read()
+                
+            # Perform permanent registration
+            db_image = await image_service.create_image(
+                db=db,
+                file_bytes=cached_bytes,
+                filename=file.filename or f"upload.{mime_type.split('/')[-1]}",
+                mime_type=mime_type
+            )
+        finally:
+            # Clean up temporary cached file
+            if temp_path.exists():
+                temp_path.unlink()
+                
         # Map to Pydantic Response Schema
         metadata = ImageMetadata(
             id=db_image.id,
@@ -57,6 +59,11 @@ async def upload_image(
         
         return ImageUploadResponse(image=metadata, message="Image uploaded successfully")
         
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
