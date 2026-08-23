@@ -4,12 +4,11 @@
   "private": true,
   "description": "FormatFlow — Universal image transformation platform",
   "workspaces": [
-    "apps/web",
-    "packages/*"
+    "client"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace=apps/web",
-    "build:web": "npm run build --workspace=apps/web",
+    "dev:client": "npm run dev --workspace=client",
+    "build:client": "npm run build --workspace=client",
     "lint": "npm run lint --workspaces"
   }
 }

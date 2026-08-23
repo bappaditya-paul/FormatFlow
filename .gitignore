@@ -36,5 +36,5 @@ Thumbs.db
 *.sqlite3
 
 # Static Uploads Fallback
-apps/api/static/
+server/static/
 
