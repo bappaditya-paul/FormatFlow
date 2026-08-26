@@ -28,3 +28,8 @@ class ImageMetadata(BaseModel):
 class ImageUploadResponse(BaseModel):
     image: ImageMetadata
     message: str = "Image uploaded successfully"
+
+
+class UrlUploadRequest(BaseModel):
+    url: HttpUrl
+
