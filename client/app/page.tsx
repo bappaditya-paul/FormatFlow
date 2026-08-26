@@ -16,10 +16,12 @@ export default function Home() {
     <div className="min-h-screen bg-background text-primary-text font-sans selection:bg-accent/30">
       <header className="w-full max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {/* Mock Logo matching FF from old design */}
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary-text text-background font-bold text-lg">
-            FF
-          </div>
+          <img 
+            src="/website_logo.png" 
+            alt="FormatFlow Logo" 
+            className="size-10 object-contain rounded-xl"
+            style={{ boxShadow: "0 0 0 1px oklch(1 0 0 / 0.1)" }}
+          />
           <span className="font-bold text-xl tracking-tight">FormatFlow</span>
         </div>
         <nav className="hidden md:flex gap-8 text-sm font-medium">

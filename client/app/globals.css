@@ -7,7 +7,7 @@
   --primary-text: #F2F1ED;
   --secondary-text: #8A8A90;
   --border: #252529;
-  --accent: #2563EB;
+  --accent: #207270; /* Teal from the chameleon logo */
 }
 
 @theme inline {
